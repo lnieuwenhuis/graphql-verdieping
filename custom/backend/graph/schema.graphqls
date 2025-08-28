@@ -1,0 +1,12 @@
+# GraphQL schema for custom Go backend
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+}
+
+type Query {
+  hello: String!
+  users: [User!]!
+}

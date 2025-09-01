@@ -1,12 +1,42 @@
-# GraphQL schema for custom Go backend
-
 type User {
   id: ID!
   name: String!
-  email: String!
+}
+
+type Post {
+  id: ID!
+  title: String!
+  description: String
+  bodyText: String!
+}
+
+input RefreshTokenInput {
+  token: String!
+}
+
+input NewUser {
+  username: String!
+  password: String!
+}
+
+input NewPost {
+  title: String!
+  description: String
+  bodyText: String!
+}
+
+input Login {
+  username: String!
+  password: String!
 }
 
 type Query {
-  hello: String!
   users: [User!]!
+}
+
+type Mutation {
+  createPost(input: NewPost): Post!
+  createUser(input: NewUser!): String!
+  login(input: Login!): String!
+  refreshToken(input: RefreshTokenInput!): String!
 }

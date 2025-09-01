@@ -2,11 +2,40 @@
 
 package model
 
+type Login struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type Mutation struct {
+}
+
+type NewPost struct {
+	Title       string  `json:"title"`
+	Description *string `json:"description,omitempty"`
+	BodyText    string  `json:"bodyText"`
+}
+
+type NewUser struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+type Post struct {
+	ID          string  `json:"id"`
+	Title       string  `json:"title"`
+	Description *string `json:"description,omitempty"`
+	BodyText    string  `json:"bodyText"`
+}
+
 type Query struct {
 }
 
+type RefreshTokenInput struct {
+	Token string `json:"token"`
+}
+
 type User struct {
-	ID    string `json:"id"`
-	Name  string `json:"name"`
-	Email string `json:"email"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
 }

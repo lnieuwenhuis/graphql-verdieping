@@ -6,13 +6,29 @@ package graph
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/lnieuwenhuis/graphql-verdieping/custom/graph/model"
 )
 
-// Hello is the resolver for the hello field.
-func (r *queryResolver) Hello(ctx context.Context) (string, error) {
-	return "Hello from GraphQL Go backend!", nil
+// CreatePost is the resolver for the createPost field.
+func (r *mutationResolver) CreatePost(ctx context.Context, input *model.NewPost) (*model.Post, error) {
+	panic(fmt.Errorf("not implemented: CreatePost - createPost"))
+}
+
+// CreateUser is the resolver for the createUser field.
+func (r *mutationResolver) CreateUser(ctx context.Context, input model.NewUser) (string, error) {
+	panic(fmt.Errorf("not implemented: CreateUser - createUser"))
+}
+
+// Login is the resolver for the login field.
+func (r *mutationResolver) Login(ctx context.Context, input model.Login) (string, error) {
+	panic(fmt.Errorf("not implemented: Login - login"))
+}
+
+// RefreshToken is the resolver for the refreshToken field.
+func (r *mutationResolver) RefreshToken(ctx context.Context, input model.RefreshTokenInput) (string, error) {
+	panic(fmt.Errorf("not implemented: RefreshToken - refreshToken"))
 }
 
 // Users is the resolver for the users field.
@@ -20,42 +36,26 @@ func (r *queryResolver) Users(ctx context.Context) ([]*model.User, error) {
 	// Sample users data
 	users := []*model.User{
 		{
-			ID:    "1",
-			Name:  "John Doe",
-			Email: "john@example.com",
+			ID:   "1",
+			Name: "John Doe",
 		},
 		{
-			ID:    "2",
-			Name:  "Jane Smith",
-			Email: "jane@example.com",
+			ID:   "2",
+			Name: "Jane Smith",
 		},
 		{
-			ID:    "3",
-			Name:  "Bob Johnson",
-			Email: "bob@example.com",
+			ID:   "3",
+			Name: "Bob Johnson",
 		},
 	}
 	return users, nil
 }
 
+// Mutation returns MutationResolver implementation.
+func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
+
 // Query returns QueryResolver implementation.
 func (r *Resolver) Query() QueryResolver { return &queryResolver{r} }
 
-type queryResolver struct{ *Resolver }
-
-// !!! WARNING !!!
-// The code below was going to be deleted when updating resolvers. It has been copied here so you have
-// one last chance to move it out of harms way if you want. There are two reasons this happens:
-//  - When renaming or deleting a resolver the old code will be put in here. You can safely delete
-//    it when you're done.
-//  - You have helper methods in this file. Move them out to keep these resolver files clean.
-/*
-	func (r *mutationResolver) CreateTodo(ctx context.Context, input model.NewTodo) (*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: CreateTodo - createTodo"))
-}
-func (r *queryResolver) Todos(ctx context.Context) ([]*model.Todo, error) {
-	panic(fmt.Errorf("not implemented: Todos - todos"))
-}
-func (r *Resolver) Mutation() MutationResolver { return &mutationResolver{r} }
 type mutationResolver struct{ *Resolver }
-*/
+type queryResolver struct{ *Resolver }

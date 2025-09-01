@@ -2,40 +2,71 @@
 
 package model
 
-type Login struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+type Author struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Email     string  `json:"email"`
+	Bio       *string `json:"bio,omitempty"`
+	Posts     []*Post `json:"posts"`
+	CreatedAt string  `json:"createdAt"`
+	UpdatedAt string  `json:"updatedAt"`
+}
+
+type Category struct {
+	ID        string  `json:"id"`
+	Name      string  `json:"name"`
+	Slug      string  `json:"slug"`
+	Posts     []*Post `json:"posts"`
+	CreatedAt string  `json:"createdAt"`
+	UpdatedAt string  `json:"updatedAt"`
 }
 
 type Mutation struct {
 }
 
-type NewPost struct {
-	Title       string  `json:"title"`
-	Description *string `json:"description,omitempty"`
-	BodyText    string  `json:"bodyText"`
+type NewAuthor struct {
+	Name  string  `json:"name"`
+	Email string  `json:"email"`
+	Bio   *string `json:"bio,omitempty"`
 }
 
-type NewUser struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+type NewCategory struct {
+	Name string `json:"name"`
+	Slug string `json:"slug"`
+}
+
+type NewPost struct {
+	Title       string   `json:"title"`
+	Slug        string   `json:"slug"`
+	Description *string  `json:"description,omitempty"`
+	Content     string   `json:"content"`
+	Published   *bool    `json:"published,omitempty"`
+	AuthorID    string   `json:"authorId"`
+	CategoryIds []string `json:"categoryIds,omitempty"`
 }
 
 type Post struct {
-	ID          string  `json:"id"`
-	Title       string  `json:"title"`
-	Description *string `json:"description,omitempty"`
-	BodyText    string  `json:"bodyText"`
+	ID          string      `json:"id"`
+	Title       string      `json:"title"`
+	Slug        string      `json:"slug"`
+	Description *string     `json:"description,omitempty"`
+	Content     string      `json:"content"`
+	Published   bool        `json:"published"`
+	Author      *Author     `json:"author"`
+	Categories  []*Category `json:"categories"`
+	CreatedAt   string      `json:"createdAt"`
+	UpdatedAt   string      `json:"updatedAt"`
 }
 
 type Query struct {
 }
 
-type RefreshTokenInput struct {
-	Token string `json:"token"`
-}
-
-type User struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
+type UpdatePost struct {
+	ID          string   `json:"id"`
+	Title       *string  `json:"title,omitempty"`
+	Slug        *string  `json:"slug,omitempty"`
+	Description *string  `json:"description,omitempty"`
+	Content     *string  `json:"content,omitempty"`
+	Published   *bool    `json:"published,omitempty"`
+	CategoryIds []string `json:"categoryIds,omitempty"`
 }

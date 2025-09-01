@@ -7,48 +7,314 @@ package graph
 import (
 	"context"
 	"fmt"
+	"strconv"
 
+	"github.com/lnieuwenhuis/graphql-verdieping/custom/database"
 	"github.com/lnieuwenhuis/graphql-verdieping/custom/graph/model"
 )
 
 // CreatePost is the resolver for the createPost field.
-func (r *mutationResolver) CreatePost(ctx context.Context, input *model.NewPost) (*model.Post, error) {
-	panic(fmt.Errorf("not implemented: CreatePost - createPost"))
-}
-
-// CreateUser is the resolver for the createUser field.
-func (r *mutationResolver) CreateUser(ctx context.Context, input model.NewUser) (string, error) {
-	panic(fmt.Errorf("not implemented: CreateUser - createUser"))
-}
-
-// Login is the resolver for the login field.
-func (r *mutationResolver) Login(ctx context.Context, input model.Login) (string, error) {
-	panic(fmt.Errorf("not implemented: Login - login"))
-}
-
-// RefreshToken is the resolver for the refreshToken field.
-func (r *mutationResolver) RefreshToken(ctx context.Context, input model.RefreshTokenInput) (string, error) {
-	panic(fmt.Errorf("not implemented: RefreshToken - refreshToken"))
-}
-
-// Users is the resolver for the users field.
-func (r *queryResolver) Users(ctx context.Context) ([]*model.User, error) {
-	// Sample users data
-	users := []*model.User{
-		{
-			ID:   "1",
-			Name: "John Doe",
-		},
-		{
-			ID:   "2",
-			Name: "Jane Smith",
-		},
-		{
-			ID:   "3",
-			Name: "Bob Johnson",
-		},
+func (r *mutationResolver) CreatePost(ctx context.Context, input model.NewPost) (*model.Post, error) {
+	// Convert authorId to uint
+	authorID, err := strconv.ParseUint(input.AuthorID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid author ID: %v", err)
 	}
-	return users, nil
+
+	// Create database post
+	dbPost := database.Post{
+		Title:   input.Title,
+		Slug:    input.Slug,
+		Content: input.Content,
+		AuthorID: uint(authorID),
+	}
+
+	// Handle optional fields
+	if input.Description != nil {
+		dbPost.Description = *input.Description
+	}
+	if input.Published != nil {
+		dbPost.Published = *input.Published
+	} else {
+		dbPost.Published = false // Default to unpublished
+	}
+
+	// Create the post
+	if err := r.DB.Create(&dbPost).Error; err != nil {
+		return nil, fmt.Errorf("failed to create post: %v", err)
+	}
+
+	// Load the post with associations
+	if err := r.DB.Preload("Author").Preload("Categories").First(&dbPost, dbPost.ID).Error; err != nil {
+		return nil, fmt.Errorf("failed to load created post: %v", err)
+	}
+
+	// Associate categories if provided
+	if input.CategoryIds != nil {
+		for _, categoryIDStr := range input.CategoryIds {
+			categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+			if err != nil {
+				continue
+			}
+			var category database.Category
+			if err := r.DB.First(&category, uint(categoryID)).Error; err == nil {
+				r.DB.Model(&dbPost).Association("Categories").Append(&category)
+			}
+		}
+		// Reload with updated categories
+		r.DB.Preload("Author").Preload("Categories").First(&dbPost, dbPost.ID)
+	}
+
+	return dbPostToGraphQL(&dbPost), nil
+}
+
+// UpdatePost is the resolver for the updatePost field.
+func (r *mutationResolver) UpdatePost(ctx context.Context, input model.UpdatePost) (*model.Post, error) {
+	postID, err := strconv.ParseUint(input.ID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid post ID: %v", err)
+	}
+
+	var dbPost database.Post
+	if err := r.DB.First(&dbPost, uint(postID)).Error; err != nil {
+		return nil, fmt.Errorf("post not found: %v", err)
+	}
+
+	// Update fields if provided
+	if input.Title != nil {
+		dbPost.Title = *input.Title
+	}
+	if input.Slug != nil {
+		dbPost.Slug = *input.Slug
+	}
+	if input.Description != nil {
+		dbPost.Description = *input.Description
+	}
+	if input.Content != nil {
+		dbPost.Content = *input.Content
+	}
+	if input.Published != nil {
+		dbPost.Published = *input.Published
+	}
+
+	if err := r.DB.Save(&dbPost).Error; err != nil {
+		return nil, fmt.Errorf("failed to update post: %v", err)
+	}
+
+	// Update categories if provided
+	if input.CategoryIds != nil {
+		r.DB.Model(&dbPost).Association("Categories").Clear()
+		for _, categoryIDStr := range input.CategoryIds {
+			categoryID, err := strconv.ParseUint(categoryIDStr, 10, 32)
+			if err != nil {
+				continue
+			}
+			var category database.Category
+			if err := r.DB.First(&category, uint(categoryID)).Error; err == nil {
+				r.DB.Model(&dbPost).Association("Categories").Append(&category)
+			}
+		}
+	}
+
+	// Load with associations
+	r.DB.Preload("Author").Preload("Categories").First(&dbPost, dbPost.ID)
+	return dbPostToGraphQL(&dbPost), nil
+}
+
+// DeletePost is the resolver for the deletePost field.
+func (r *mutationResolver) DeletePost(ctx context.Context, id string) (bool, error) {
+	postID, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		return false, fmt.Errorf("invalid post ID: %v", err)
+	}
+
+	if err := r.DB.Delete(&database.Post{}, uint(postID)).Error; err != nil {
+		return false, fmt.Errorf("failed to delete post: %v", err)
+	}
+
+	return true, nil
+}
+
+// CreateAuthor is the resolver for the createAuthor field.
+func (r *mutationResolver) CreateAuthor(ctx context.Context, input model.NewAuthor) (*model.Author, error) {
+	dbAuthor := database.Author{
+		Name:  input.Name,
+		Email: input.Email,
+	}
+
+	// Handle optional bio field
+	if input.Bio != nil {
+		dbAuthor.Bio = *input.Bio
+	}
+
+	if err := r.DB.Create(&dbAuthor).Error; err != nil {
+		return nil, fmt.Errorf("failed to create author: %v", err)
+	}
+
+	return dbAuthorToGraphQL(&dbAuthor), nil
+}
+
+// CreateCategory is the resolver for the createCategory field.
+func (r *mutationResolver) CreateCategory(ctx context.Context, input model.NewCategory) (*model.Category, error) {
+	dbCategory := database.Category{
+		Name: input.Name,
+		Slug: input.Slug,
+	}
+
+	if err := r.DB.Create(&dbCategory).Error; err != nil {
+		return nil, fmt.Errorf("failed to create category: %v", err)
+	}
+
+	return dbCategoryToGraphQL(&dbCategory), nil
+}
+
+// Posts is the resolver for the posts field.
+func (r *queryResolver) Posts(ctx context.Context) ([]*model.Post, error) {
+	var dbPosts []database.Post
+	if err := r.DB.Where("published = ?", true).Preload("Author").Preload("Categories").Find(&dbPosts).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch posts: %v", err)
+	}
+
+	var posts []*model.Post
+	for _, dbPost := range dbPosts {
+		posts = append(posts, dbPostToGraphQL(&dbPost))
+	}
+	return posts, nil
+}
+
+// AllPosts is the resolver for the allPosts field.
+func (r *queryResolver) AllPosts(ctx context.Context) ([]*model.Post, error) {
+	var dbPosts []database.Post
+	if err := r.DB.Preload("Author").Preload("Categories").Find(&dbPosts).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch all posts: %v", err)
+	}
+
+	var posts []*model.Post
+	for _, dbPost := range dbPosts {
+		posts = append(posts, dbPostToGraphQL(&dbPost))
+	}
+	return posts, nil
+}
+
+// Post is the resolver for the post field.
+func (r *queryResolver) Post(ctx context.Context, id string) (*model.Post, error) {
+	postID, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid post ID: %v", err)
+	}
+
+	var dbPost database.Post
+	if err := r.DB.Preload("Author").Preload("Categories").First(&dbPost, uint(postID)).Error; err != nil {
+		return nil, fmt.Errorf("post not found: %v", err)
+	}
+
+	return dbPostToGraphQL(&dbPost), nil
+}
+
+// PostBySlug is the resolver for the postBySlug field.
+func (r *queryResolver) PostBySlug(ctx context.Context, slug string) (*model.Post, error) {
+	var dbPost database.Post
+	if err := r.DB.Where("slug = ?", slug).Preload("Author").Preload("Categories").First(&dbPost).Error; err != nil {
+		return nil, fmt.Errorf("post not found: %v", err)
+	}
+
+	return dbPostToGraphQL(&dbPost), nil
+}
+
+// Authors is the resolver for the authors field.
+func (r *queryResolver) Authors(ctx context.Context) ([]*model.Author, error) {
+	var dbAuthors []database.Author
+	if err := r.DB.Preload("Posts").Find(&dbAuthors).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch authors: %v", err)
+	}
+
+	var authors []*model.Author
+	for _, dbAuthor := range dbAuthors {
+		authors = append(authors, dbAuthorToGraphQL(&dbAuthor))
+	}
+	return authors, nil
+}
+
+// Author is the resolver for the author field.
+func (r *queryResolver) Author(ctx context.Context, id string) (*model.Author, error) {
+	authorID, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid author ID: %v", err)
+	}
+
+	var dbAuthor database.Author
+	if err := r.DB.Preload("Posts").First(&dbAuthor, uint(authorID)).Error; err != nil {
+		return nil, fmt.Errorf("author not found: %v", err)
+	}
+
+	return dbAuthorToGraphQL(&dbAuthor), nil
+}
+
+// Categories is the resolver for the categories field.
+func (r *queryResolver) Categories(ctx context.Context) ([]*model.Category, error) {
+	var dbCategories []database.Category
+	if err := r.DB.Preload("Posts").Find(&dbCategories).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch categories: %v", err)
+	}
+
+	var categories []*model.Category
+	for _, dbCategory := range dbCategories {
+		categories = append(categories, dbCategoryToGraphQL(&dbCategory))
+	}
+	return categories, nil
+}
+
+// Category is the resolver for the category field.
+func (r *queryResolver) Category(ctx context.Context, id string) (*model.Category, error) {
+	categoryID, err := strconv.ParseUint(id, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid category ID: %v", err)
+	}
+
+	var dbCategory database.Category
+	if err := r.DB.Preload("Posts").First(&dbCategory, uint(categoryID)).Error; err != nil {
+		return nil, fmt.Errorf("category not found: %v", err)
+	}
+
+	return dbCategoryToGraphQL(&dbCategory), nil
+}
+
+// PostsByCategory is the resolver for the postsByCategory field.
+func (r *queryResolver) PostsByCategory(ctx context.Context, categoryID string) ([]*model.Post, error) {
+	catID, err := strconv.ParseUint(categoryID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid category ID: %v", err)
+	}
+
+	var dbPosts []database.Post
+	if err := r.DB.Joins("JOIN post_categories ON posts.id = post_categories.post_id").Where("post_categories.category_id = ?", uint(catID)).Preload("Author").Preload("Categories").Find(&dbPosts).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch posts by category: %v", err)
+	}
+
+	var posts []*model.Post
+	for _, dbPost := range dbPosts {
+		posts = append(posts, dbPostToGraphQL(&dbPost))
+	}
+	return posts, nil
+}
+
+// PostsByAuthor is the resolver for the postsByAuthor field.
+func (r *queryResolver) PostsByAuthor(ctx context.Context, authorID string) ([]*model.Post, error) {
+	autID, err := strconv.ParseUint(authorID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid author ID: %v", err)
+	}
+
+	var dbPosts []database.Post
+	if err := r.DB.Where("author_id = ?", uint(autID)).Preload("Author").Preload("Categories").Find(&dbPosts).Error; err != nil {
+		return nil, fmt.Errorf("failed to fetch posts by author: %v", err)
+	}
+
+	var posts []*model.Post
+	for _, dbPost := range dbPosts {
+		posts = append(posts, dbPostToGraphQL(&dbPost))
+	}
+	return posts, nil
 }
 
 // Mutation returns MutationResolver implementation.

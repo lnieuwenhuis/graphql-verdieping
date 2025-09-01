@@ -1,42 +1,102 @@
-type User {
+# Author represents a blog author
+type Author {
   id: ID!
   name: String!
+  email: String!
+  bio: String
+  posts: [Post!]!
+  createdAt: String!
+  updatedAt: String!
 }
 
+# Category represents a blog post category
+type Category {
+  id: ID!
+  name: String!
+  slug: String!
+  posts: [Post!]!
+  createdAt: String!
+  updatedAt: String!
+}
+
+# Post represents a blog post
 type Post {
   id: ID!
   title: String!
+  slug: String!
   description: String
-  bodyText: String!
+  content: String!
+  published: Boolean!
+  author: Author!
+  categories: [Category!]!
+  createdAt: String!
+  updatedAt: String!
 }
 
-input RefreshTokenInput {
-  token: String!
+# Input types for mutations
+input NewAuthor {
+  name: String!
+  email: String!
+  bio: String
 }
 
-input NewUser {
-  username: String!
-  password: String!
+input NewCategory {
+  name: String!
+  slug: String!
 }
 
 input NewPost {
   title: String!
+  slug: String!
   description: String
-  bodyText: String!
+  content: String!
+  published: Boolean = false
+  authorId: ID!
+  categoryIds: [ID!]
 }
 
-input Login {
-  username: String!
-  password: String!
+input UpdatePost {
+  id: ID!
+  title: String
+  slug: String
+  description: String
+  content: String
+  published: Boolean
+  categoryIds: [ID!]
 }
 
 type Query {
-  users: [User!]!
+  # Get all published posts
+  posts: [Post!]!
+  # Get all posts (including unpublished)
+  allPosts: [Post!]!
+  # Get a single post by ID
+  post(id: ID!): Post
+  # Get a single post by slug
+  postBySlug(slug: String!): Post
+  # Get all authors
+  authors: [Author!]!
+  # Get a single author by ID
+  author(id: ID!): Author
+  # Get all categories
+  categories: [Category!]!
+  # Get a single category by ID
+  category(id: ID!): Category
+  # Get posts by category
+  postsByCategory(categoryId: ID!): [Post!]!
+  # Get posts by author
+  postsByAuthor(authorId: ID!): [Post!]!
 }
 
 type Mutation {
-  createPost(input: NewPost): Post!
-  createUser(input: NewUser!): String!
-  login(input: Login!): String!
-  refreshToken(input: RefreshTokenInput!): String!
+  # Create a new post
+  createPost(input: NewPost!): Post!
+  # Update an existing post
+  updatePost(input: UpdatePost!): Post!
+  # Delete a post
+  deletePost(id: ID!): Boolean!
+  # Create a new author
+  createAuthor(input: NewAuthor!): Author!
+  # Create a new category
+  createCategory(input: NewCategory!): Category!
 }

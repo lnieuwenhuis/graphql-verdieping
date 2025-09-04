@@ -45,6 +45,7 @@ func dbAuthorToGraphQL(dbAuthor *database.Author) *model.Author {
 		Name:      dbAuthor.Name,
 		Email:     dbAuthor.Email,
 		Bio:       &dbAuthor.Bio,
+		Role:      dbAuthor.Role,
 		CreatedAt: dbAuthor.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
 		UpdatedAt: dbAuthor.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
 	}

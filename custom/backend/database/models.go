@@ -14,7 +14,9 @@ type Author struct {
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
 	Name      string         `gorm:"not null" json:"name"`
 	Email     string         `gorm:"uniqueIndex;not null" json:"email"`
+	Password  string         `gorm:"default:''" json:"-"` // Password is not included in JSON responses
 	Bio       string         `json:"bio"`
+	Role      string         `gorm:"default:'admin'" json:"role"` // Role: admin or user
 	Posts     []Post         `gorm:"foreignKey:AuthorID" json:"posts"`
 }
 
@@ -49,4 +51,16 @@ type Post struct {
 type PostCategory struct {
 	PostID     uint `gorm:"primaryKey"`
 	CategoryID uint `gorm:"primaryKey"`
+}
+
+// Session represents a user session for authentication
+type Session struct {
+	ID        uint           `gorm:"primarykey" json:"id"`
+	CreatedAt time.Time      `json:"created_at"`
+	UpdatedAt time.Time      `json:"updated_at"`
+	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	Token     string         `gorm:"uniqueIndex;not null" json:"token"`
+	AuthorID  uint           `gorm:"not null" json:"author_id"`
+	Author    Author         `gorm:"foreignKey:AuthorID" json:"author"`
+	ExpiresAt time.Time      `gorm:"not null" json:"expires_at"`
 }

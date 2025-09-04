@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useMutation } from '@apollo/client/react';
+import React, { useState } from 'react';
+import { useMutation, useQuery } from '@apollo/client/react';
 import { gql } from '@apollo/client';
 
 const CREATE_POST = gql`
@@ -16,11 +16,55 @@ const CREATE_POST = gql`
         id
         name
       }
+      categories {
+        id
+        name
+      }
+    }
+  }
+`;
+
+const GET_AUTHORS = gql`
+  query GetAuthors {
+    authors {
+      id
+      name
+      email
+    }
+  }
+`;
+
+const GET_CATEGORIES = gql`
+  query GetCategories {
+    categories {
+      id
+      name
+      slug
     }
   }
 `;
 
 
+
+interface Author {
+  id: string;
+  name: string;
+  email: string;
+}
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface AuthorsData {
+  authors: Author[];
+}
+
+interface CategoriesData {
+  categories: Category[];
+}
 
 interface CreatePostInput {
   title: string;
@@ -37,12 +81,16 @@ export function CreatePostForm() {
     title: '',
     description: '',
     content: '',
-    published: false
+    published: false,
+    authorId: '',
+    categoryIds: [] as string[]
   });
 
   const [createPost, { loading, error }] = useMutation(CREATE_POST, {
     refetchQueries: ['GetPosts'], // Refetch posts after creating
   });
+  const { data: authorsData, loading: authorsLoading } = useQuery<AuthorsData>(GET_AUTHORS);
+  const { data: categoriesData, loading: categoriesLoading } = useQuery<CategoriesData>(GET_CATEGORIES);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +104,12 @@ export function CreatePostForm() {
         slug: slug,
         content: formData.content,
         published: formData.published,
-        authorId: "1", // Default to first author for now
+        authorId: formData.authorId,
       };
+      
+      if (formData.categoryIds.length > 0) {
+        input.categoryIds = formData.categoryIds;
+      }
       
       if (formData.description.trim()) {
         input.description = formData.description;
@@ -72,7 +124,9 @@ export function CreatePostForm() {
         title: '',
         description: '',
         content: '',
-        published: false
+        published: false,
+        authorId: '',
+        categoryIds: []
       });
 
       alert('Post created successfully!');
@@ -94,6 +148,22 @@ export function CreatePostForm() {
     setFormData(prev => ({
       ...prev,
       [name]: checked
+    }));
+  };
+
+  const handleSelectChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const handleCategoryChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const selectedOptions = Array.from(e.target.selectedOptions, option => option.value);
+    setFormData(prev => ({
+      ...prev,
+      categoryIds: selectedOptions
     }));
   };
 
@@ -122,15 +192,67 @@ export function CreatePostForm() {
           <label htmlFor="description" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
             Description
           </label>
-          <input
-            type="text"
+          <textarea
             id="description"
             name="description"
             value={formData.description}
             onChange={handleChange}
+            rows={3}
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
-            placeholder="Brief description of the post"
+            placeholder="Brief description of your post..."
           />
+        </div>
+
+        <div>
+          <label htmlFor="authorId" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Author *
+          </label>
+          <select
+             id="authorId"
+             name="authorId"
+             value={formData.authorId}
+             onChange={handleSelectChange}
+             required
+             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white"
+           >
+            <option value="">Select an author...</option>
+            {authorsLoading ? (
+              <option disabled>Loading authors...</option>
+            ) : (
+              authorsData?.authors.map((author) => (
+                <option key={author.id} value={author.id}>
+                  {author.name} ({author.email})
+                </option>
+              ))
+            )}
+          </select>
+        </div>
+
+        <div>
+          <label htmlFor="categoryIds" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+            Categories
+          </label>
+          <select
+            id="categoryIds"
+            name="categoryIds"
+            multiple
+            value={formData.categoryIds}
+            onChange={handleCategoryChange}
+            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-800 dark:text-white min-h-[100px]"
+          >
+            {categoriesLoading ? (
+              <option disabled>Loading categories...</option>
+            ) : (
+              categoriesData?.categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.name}
+                </option>
+              ))
+            )}
+          </select>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            Hold Ctrl/Cmd to select multiple categories
+          </p>
         </div>
 
         <div>
@@ -171,7 +293,7 @@ export function CreatePostForm() {
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={loading || !formData.title.trim() || !formData.content.trim()}
+            disabled={loading || !formData.title.trim() || !formData.content.trim() || !formData.authorId.trim()}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {loading ? 'Creating...' : 'Create Post'}

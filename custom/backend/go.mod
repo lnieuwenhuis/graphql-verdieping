@@ -5,6 +5,7 @@ go 1.24.5
 require (
 	github.com/99designs/gqlgen v0.17.78
 	github.com/vektah/gqlparser/v2 v2.5.30
+	golang.org/x/crypto v0.41.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.30.2
 )

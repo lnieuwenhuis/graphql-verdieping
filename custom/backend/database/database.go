@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -28,7 +29,7 @@ func InitDatabase() {
 	}
 
 	// Auto-migrate the schema
-	err = DB.AutoMigrate(&Author{}, &Category{}, &Post{}, &PostCategory{})
+	err = DB.AutoMigrate(&Author{}, &Category{}, &Post{}, &PostCategory{}, &Session{})
 	if err != nil {
 		log.Fatal("Failed to migrate database:", err)
 	}
@@ -48,17 +49,24 @@ func seedData() {
 		return // Data already seeded
 	}
 
-	// Create sample authors
+	// Create sample authors with hashed passwords
+	johnPassword, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	janePassword, _ := bcrypt.GenerateFromPassword([]byte("password123"), bcrypt.DefaultCost)
+	
 	authors := []Author{
 		{
-			Name:  "John Doe",
-			Email: "john@example.com",
-			Bio:   "Tech enthusiast and blogger",
+			Name:     "John Doe",
+			Email:    "john@example.com",
+			Password: string(johnPassword),
+			Bio:      "Tech enthusiast and blogger",
+			Role:     "admin",
 		},
 		{
-			Name:  "Jane Smith",
-			Email: "jane@example.com",
-			Bio:   "Frontend developer and UI/UX designer",
+			Name:     "Jane Smith",
+			Email:    "jane@example.com",
+			Password: string(janePassword),
+			Bio:      "Frontend developer and UI/UX designer",
+			Role:     "admin",
 		},
 	}
 

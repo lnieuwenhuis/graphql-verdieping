@@ -6,12 +6,9 @@ import (
 	"os"
 
 	"github.com/99designs/gqlgen/graphql/handler"
-	"github.com/99designs/gqlgen/graphql/handler/extension"
-	"github.com/99designs/gqlgen/graphql/handler/lru"
-	"github.com/99designs/gqlgen/graphql/handler/transport"
 	"github.com/99designs/gqlgen/graphql/playground"
 	"github.com/lnieuwenhuis/graphql-verdieping/custom/graph"
-	"github.com/vektah/gqlparser/v2/ast"
+	"github.com/lnieuwenhuis/graphql-verdieping/custom/middleware"
 )
 
 // CORS middleware
@@ -38,27 +35,20 @@ func main() {
 		port = defaultPort
 	}
 
-	// Initialize resolver with database connection
+	// Initialize resolver
 	resolver, err := graph.NewResolver()
 	if err != nil {
 		log.Fatal("Failed to initialize resolver:", err)
 	}
 
-	srv := handler.New(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
+	// Create GraphQL handler with proper schema
+	srv := handler.NewDefaultServer(graph.NewExecutableSchema(graph.Config{Resolvers: resolver}))
 
-	srv.AddTransport(transport.Options{})
-	srv.AddTransport(transport.GET{})
-	srv.AddTransport(transport.POST{})
-
-	srv.SetQueryCache(lru.New[*ast.QueryDocument](1000))
-
-	srv.Use(extension.Introspection{})
-	srv.Use(extension.AutomaticPersistedQuery{
-		Cache: lru.New[string](100),
-	})
+	// Apply CORS and auth middleware
+	handler := corsMiddleware(middleware.AuthMiddleware(resolver.DB)(srv))
 
 	http.Handle("/", corsMiddleware(playground.Handler("GraphQL playground", "/query")))
-	http.Handle("/query", corsMiddleware(srv))
+	http.Handle("/query", handler)
 
 	log.Printf("connect to http://localhost:%s/ for GraphQL playground", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))

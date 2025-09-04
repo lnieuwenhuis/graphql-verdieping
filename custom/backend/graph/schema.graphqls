@@ -4,6 +4,7 @@ type Author {
   name: String!
   email: String!
   bio: String
+  role: String!
   posts: [Post!]!
   createdAt: String!
   updatedAt: String!
@@ -33,16 +34,61 @@ type Post {
   updatedAt: String!
 }
 
+# Authentication types
+type AuthPayload {
+  token: String!
+  author: Author!
+}
+
+type Session {
+  id: ID!
+  authorId: ID!
+  token: String!
+  expiresAt: String!
+}
+
 # Input types for mutations
+input LoginInput {
+  email: String!
+  password: String!
+}
+
 input NewAuthor {
   name: String!
   email: String!
   bio: String
+  password: String!
+}
+
+input RegisterInput {
+  name: String!
+  email: String!
+  password: String!
+  bio: String
+}
+
+input UpdateAuthorRoleInput {
+  authorId: ID!
+  role: String!
+}
+
+input UpdateAuthor {
+  id: ID!
+  name: String
+  email: String
+  bio: String
+  password: String
 }
 
 input NewCategory {
   name: String!
   slug: String!
+}
+
+input UpdateCategory {
+  id: ID!
+  name: String
+  slug: String
 }
 
 input NewPost {
@@ -68,7 +114,7 @@ input UpdatePost {
 type Query {
   # Get all published posts
   posts: [Post!]!
-  # Get all posts (including unpublished)
+  # Get all posts (including unpublished) - requires authentication
   allPosts: [Post!]!
   # Get a single post by ID
   post(id: ID!): Post
@@ -86,17 +132,31 @@ type Query {
   postsByCategory(categoryId: ID!): [Post!]!
   # Get posts by author
   postsByAuthor(authorId: ID!): [Post!]!
+  # Get current authenticated user
+  me: Author
 }
 
 type Mutation {
-  # Create a new post
+  # Authentication
+  login(input: LoginInput!): AuthPayload!
+  logout: Boolean!
+  # Public registration - creates admin users by default
+  register(input: RegisterInput!): AuthPayload!
+  
+  # Post management - requires authentication
   createPost(input: NewPost!): Post!
-  # Update an existing post
   updatePost(input: UpdatePost!): Post!
-  # Delete a post
   deletePost(id: ID!): Boolean!
-  # Create a new author
+  
+  # Author management - requires admin authentication
   createAuthor(input: NewAuthor!): Author!
-  # Create a new category
+  updateAuthor(input: UpdateAuthor!): Author!
+  deleteAuthor(id: ID!): Boolean!
+  # Role management - requires admin authentication
+  updateAuthorRole(input: UpdateAuthorRoleInput!): Author!
+  
+  # Category management - requires admin authentication
   createCategory(input: NewCategory!): Category!
+  updateCategory(input: UpdateCategory!): Category!
+  deleteCategory(id: ID!): Boolean!
 }

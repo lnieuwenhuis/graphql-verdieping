@@ -9,23 +9,120 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/lnieuwenhuis/graphql-verdieping/custom/auth"
 	"github.com/lnieuwenhuis/graphql-verdieping/custom/database"
 	"github.com/lnieuwenhuis/graphql-verdieping/custom/graph/model"
 )
 
+// Login is the resolver for the login field.
+func (r *mutationResolver) Login(ctx context.Context, input model.LoginInput) (*model.AuthPayload, error) {
+	// Find author by email
+	var author database.Author
+	if err := r.DB.Where("email = ?", input.Email).First(&author).Error; err != nil {
+		return nil, fmt.Errorf("invalid credentials")
+	}
+
+	// Check password
+	if !auth.CheckPassword(input.Password, author.Password) {
+		return nil, fmt.Errorf("invalid credentials")
+	}
+
+	// Create session
+	session, err := auth.CreateSession(r.DB, author.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session: %v", err)
+	}
+
+	// Convert to GraphQL types
+	gqlAuthor := dbAuthorToGraphQL(&author)
+
+	return &model.AuthPayload{
+		Token:  session.Token,
+		Author: gqlAuthor,
+	}, nil
+}
+
+// Logout is the resolver for the logout field.
+func (r *mutationResolver) Logout(ctx context.Context) (bool, error) {
+	// Get token from context (will be set by middleware)
+	token, ok := ctx.Value("token").(string)
+	if !ok || token == "" {
+		return false, fmt.Errorf("no session found")
+	}
+
+	// Delete session
+	if err := auth.DeleteSession(r.DB, token); err != nil {
+		return false, fmt.Errorf("failed to logout: %v", err)
+	}
+
+	return true, nil
+}
+
+// Register is the resolver for the register field.
+func (r *mutationResolver) Register(ctx context.Context, input model.RegisterInput) (*model.AuthPayload, error) {
+	// Hash the password
+	hashedPassword, err := auth.HashPassword(input.Password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %v", err)
+	}
+
+	// Create new author with admin role by default
+	dbAuthor := database.Author{
+		Name:     input.Name,
+		Email:    input.Email,
+		Password: hashedPassword,
+		Role:     "admin", // All new registrations are admin by default
+	}
+
+	// Handle optional bio
+	if input.Bio != nil {
+		dbAuthor.Bio = *input.Bio
+	}
+
+	// Create the author
+	if err := r.DB.Create(&dbAuthor).Error; err != nil {
+		return nil, fmt.Errorf("failed to create author: %v", err)
+	}
+
+	// Create session for the new user
+	session, err := auth.CreateSession(r.DB, dbAuthor.ID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create session: %v", err)
+	}
+
+	// Convert to GraphQL types
+	gqlAuthor := dbAuthorToGraphQL(&dbAuthor)
+
+	return &model.AuthPayload{
+		Token:  session.Token,
+		Author: gqlAuthor,
+	}, nil
+}
+
 // CreatePost is the resolver for the createPost field.
 func (r *mutationResolver) CreatePost(ctx context.Context, input model.NewPost) (*model.Post, error) {
+	// Check if user is authenticated
+	session := auth.GetSessionFromContext(ctx)
+	if session == nil {
+		return nil, fmt.Errorf("authentication required")
+	}
+
 	// Convert authorId to uint
 	authorID, err := strconv.ParseUint(input.AuthorID, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("invalid author ID: %v", err)
 	}
 
+	// Ensure the authenticated user can only create posts for themselves
+	if uint(authorID) != session.AuthorID {
+		return nil, fmt.Errorf("you can only create posts for yourself")
+	}
+
 	// Create database post
 	dbPost := database.Post{
-		Title:   input.Title,
-		Slug:    input.Slug,
-		Content: input.Content,
+		Title:    input.Title,
+		Slug:     input.Slug,
+		Content:  input.Content,
 		AuthorID: uint(authorID),
 	}
 
@@ -70,6 +167,12 @@ func (r *mutationResolver) CreatePost(ctx context.Context, input model.NewPost) 
 
 // UpdatePost is the resolver for the updatePost field.
 func (r *mutationResolver) UpdatePost(ctx context.Context, input model.UpdatePost) (*model.Post, error) {
+	// Check if user is authenticated
+	session := auth.GetSessionFromContext(ctx)
+	if session == nil {
+		return nil, fmt.Errorf("authentication required")
+	}
+
 	postID, err := strconv.ParseUint(input.ID, 10, 32)
 	if err != nil {
 		return nil, fmt.Errorf("invalid post ID: %v", err)
@@ -78,6 +181,11 @@ func (r *mutationResolver) UpdatePost(ctx context.Context, input model.UpdatePos
 	var dbPost database.Post
 	if err := r.DB.First(&dbPost, uint(postID)).Error; err != nil {
 		return nil, fmt.Errorf("post not found: %v", err)
+	}
+
+	// Ensure the authenticated user can only update their own posts
+	if dbPost.AuthorID != session.AuthorID {
+		return nil, fmt.Errorf("you can only update your own posts")
 	}
 
 	// Update fields if provided
@@ -123,9 +231,26 @@ func (r *mutationResolver) UpdatePost(ctx context.Context, input model.UpdatePos
 
 // DeletePost is the resolver for the deletePost field.
 func (r *mutationResolver) DeletePost(ctx context.Context, id string) (bool, error) {
+	// Check if user is authenticated
+	session := auth.GetSessionFromContext(ctx)
+	if session == nil {
+		return false, fmt.Errorf("authentication required")
+	}
+
 	postID, err := strconv.ParseUint(id, 10, 32)
 	if err != nil {
 		return false, fmt.Errorf("invalid post ID: %v", err)
+	}
+
+	// Check if post exists and belongs to the authenticated user
+	var dbPost database.Post
+	if err := r.DB.First(&dbPost, uint(postID)).Error; err != nil {
+		return false, fmt.Errorf("post not found: %v", err)
+	}
+
+	// Ensure the authenticated user can only delete their own posts
+	if dbPost.AuthorID != session.AuthorID {
+		return false, fmt.Errorf("you can only delete your own posts")
 	}
 
 	if err := r.DB.Delete(&database.Post{}, uint(postID)).Error; err != nil {
@@ -137,9 +262,22 @@ func (r *mutationResolver) DeletePost(ctx context.Context, id string) (bool, err
 
 // CreateAuthor is the resolver for the createAuthor field.
 func (r *mutationResolver) CreateAuthor(ctx context.Context, input model.NewAuthor) (*model.Author, error) {
+	// Check if user is authenticated
+	session := auth.GetSessionFromContext(ctx)
+	if session == nil {
+		return nil, fmt.Errorf("authentication required")
+	}
+
+	// Hash the password
+	hashedPassword, err := auth.HashPassword(input.Password)
+	if err != nil {
+		return nil, fmt.Errorf("failed to hash password: %v", err)
+	}
+
 	dbAuthor := database.Author{
-		Name:  input.Name,
-		Email: input.Email,
+		Name:     input.Name,
+		Email:    input.Email,
+		Password: hashedPassword,
 	}
 
 	// Handle optional bio field
@@ -154,6 +292,112 @@ func (r *mutationResolver) CreateAuthor(ctx context.Context, input model.NewAuth
 	return dbAuthorToGraphQL(&dbAuthor), nil
 }
 
+// UpdateAuthor is the resolver for the updateAuthor field.
+func (r *mutationResolver) UpdateAuthor(ctx context.Context, input model.UpdateAuthor) (*model.Author, error) {
+	// Check if user is authenticated
+	session := auth.GetSessionFromContext(ctx)
+	if session == nil {
+		return nil, fmt.Errorf("authentication required")
+	}
+
+	id, err := strconv.Atoi(input.ID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid author ID: %v", err)
+	}
+
+	var dbAuthor database.Author
+	if err := r.DB.First(&dbAuthor, id).Error; err != nil {
+		return nil, fmt.Errorf("author not found: %v", err)
+	}
+
+	// Update fields if provided
+	if input.Name != nil {
+		dbAuthor.Name = *input.Name
+	}
+	if input.Email != nil {
+		dbAuthor.Email = *input.Email
+	}
+	if input.Bio != nil {
+		dbAuthor.Bio = *input.Bio
+	}
+	if input.Password != nil {
+		hashedPassword, err := auth.HashPassword(*input.Password)
+		if err != nil {
+			return nil, fmt.Errorf("failed to hash password: %v", err)
+		}
+		dbAuthor.Password = hashedPassword
+	}
+
+	if err := r.DB.Save(&dbAuthor).Error; err != nil {
+		return nil, fmt.Errorf("failed to update author: %v", err)
+	}
+
+	return dbAuthorToGraphQL(&dbAuthor), nil
+}
+
+// DeleteAuthor is the resolver for the deleteAuthor field.
+func (r *mutationResolver) DeleteAuthor(ctx context.Context, id string) (bool, error) {
+	// Check if user is authenticated
+	session := auth.GetSessionFromContext(ctx)
+	if session == nil {
+		return false, fmt.Errorf("authentication required")
+	}
+
+	authorID, err := strconv.Atoi(id)
+	if err != nil {
+		return false, fmt.Errorf("invalid author ID: %v", err)
+	}
+
+	if err := r.DB.Delete(&database.Author{}, authorID).Error; err != nil {
+		return false, fmt.Errorf("failed to delete author: %v", err)
+	}
+
+	return true, nil
+}
+
+// UpdateAuthorRole is the resolver for the updateAuthorRole field.
+func (r *mutationResolver) UpdateAuthorRole(ctx context.Context, input model.UpdateAuthorRoleInput) (*model.Author, error) {
+	// Check if user is authenticated and is admin
+	session := auth.GetSessionFromContext(ctx)
+	if session == nil {
+		return nil, fmt.Errorf("authentication required")
+	}
+
+	// Get current user to check if they're admin
+	var currentUser database.Author
+	if err := r.DB.First(&currentUser, session.AuthorID).Error; err != nil {
+		return nil, fmt.Errorf("failed to get current user: %v", err)
+	}
+
+	if currentUser.Role != "admin" {
+		return nil, fmt.Errorf("admin access required")
+	}
+
+	// Validate role
+	if input.Role != "admin" && input.Role != "user" {
+		return nil, fmt.Errorf("invalid role: must be 'admin' or 'user'")
+	}
+
+	// Convert authorId to uint
+	authorID, err := strconv.ParseUint(input.AuthorID, 10, 32)
+	if err != nil {
+		return nil, fmt.Errorf("invalid author ID: %v", err)
+	}
+
+	// Update the author's role
+	var author database.Author
+	if err := r.DB.First(&author, uint(authorID)).Error; err != nil {
+		return nil, fmt.Errorf("author not found: %v", err)
+	}
+
+	author.Role = input.Role
+	if err := r.DB.Save(&author).Error; err != nil {
+		return nil, fmt.Errorf("failed to update author role: %v", err)
+	}
+
+	return dbAuthorToGraphQL(&author), nil
+}
+
 // CreateCategory is the resolver for the createCategory field.
 func (r *mutationResolver) CreateCategory(ctx context.Context, input model.NewCategory) (*model.Category, error) {
 	dbCategory := database.Category{
@@ -166,6 +410,59 @@ func (r *mutationResolver) CreateCategory(ctx context.Context, input model.NewCa
 	}
 
 	return dbCategoryToGraphQL(&dbCategory), nil
+}
+
+// UpdateCategory is the resolver for the updateCategory field.
+func (r *mutationResolver) UpdateCategory(ctx context.Context, input model.UpdateCategory) (*model.Category, error) {
+	// Check if user is authenticated
+	session := auth.GetSessionFromContext(ctx)
+	if session == nil {
+		return nil, fmt.Errorf("authentication required")
+	}
+
+	id, err := strconv.Atoi(input.ID)
+	if err != nil {
+		return nil, fmt.Errorf("invalid category ID: %v", err)
+	}
+
+	var dbCategory database.Category
+	if err := r.DB.First(&dbCategory, id).Error; err != nil {
+		return nil, fmt.Errorf("category not found: %v", err)
+	}
+
+	// Update fields if provided
+	if input.Name != nil {
+		dbCategory.Name = *input.Name
+	}
+	if input.Slug != nil {
+		dbCategory.Slug = *input.Slug
+	}
+
+	if err := r.DB.Save(&dbCategory).Error; err != nil {
+		return nil, fmt.Errorf("failed to update category: %v", err)
+	}
+
+	return dbCategoryToGraphQL(&dbCategory), nil
+}
+
+// DeleteCategory is the resolver for the deleteCategory field.
+func (r *mutationResolver) DeleteCategory(ctx context.Context, id string) (bool, error) {
+	// Check if user is authenticated
+	session := auth.GetSessionFromContext(ctx)
+	if session == nil {
+		return false, fmt.Errorf("authentication required")
+	}
+
+	categoryID, err := strconv.Atoi(id)
+	if err != nil {
+		return false, fmt.Errorf("invalid category ID: %v", err)
+	}
+
+	if err := r.DB.Delete(&database.Category{}, categoryID).Error; err != nil {
+		return false, fmt.Errorf("failed to delete category: %v", err)
+	}
+
+	return true, nil
 }
 
 // Posts is the resolver for the posts field.
@@ -315,6 +612,22 @@ func (r *queryResolver) PostsByAuthor(ctx context.Context, authorID string) ([]*
 		posts = append(posts, dbPostToGraphQL(&dbPost))
 	}
 	return posts, nil
+}
+
+// Me is the resolver for the me field.
+func (r *queryResolver) Me(ctx context.Context) (*model.Author, error) {
+	// Check if user is authenticated
+	session := auth.GetSessionFromContext(ctx)
+	if session == nil {
+		return nil, fmt.Errorf("authentication required")
+	}
+
+	var dbAuthor database.Author
+	if err := r.DB.Preload("Posts").First(&dbAuthor, session.AuthorID).Error; err != nil {
+		return nil, fmt.Errorf("author not found: %v", err)
+	}
+
+	return dbAuthorToGraphQL(&dbAuthor), nil
 }
 
 // Mutation returns MutationResolver implementation.

@@ -2,11 +2,17 @@
 
 package model
 
+type AuthPayload struct {
+	Token  string  `json:"token"`
+	Author *Author `json:"author"`
+}
+
 type Author struct {
 	ID        string  `json:"id"`
 	Name      string  `json:"name"`
 	Email     string  `json:"email"`
 	Bio       *string `json:"bio,omitempty"`
+	Role      string  `json:"role"`
 	Posts     []*Post `json:"posts"`
 	CreatedAt string  `json:"createdAt"`
 	UpdatedAt string  `json:"updatedAt"`
@@ -21,13 +27,19 @@ type Category struct {
 	UpdatedAt string  `json:"updatedAt"`
 }
 
+type LoginInput struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
 type Mutation struct {
 }
 
 type NewAuthor struct {
-	Name  string  `json:"name"`
-	Email string  `json:"email"`
-	Bio   *string `json:"bio,omitempty"`
+	Name     string  `json:"name"`
+	Email    string  `json:"email"`
+	Bio      *string `json:"bio,omitempty"`
+	Password string  `json:"password"`
 }
 
 type NewCategory struct {
@@ -59,6 +71,39 @@ type Post struct {
 }
 
 type Query struct {
+}
+
+type RegisterInput struct {
+	Name     string  `json:"name"`
+	Email    string  `json:"email"`
+	Password string  `json:"password"`
+	Bio      *string `json:"bio,omitempty"`
+}
+
+type Session struct {
+	ID        string `json:"id"`
+	AuthorID  string `json:"authorId"`
+	Token     string `json:"token"`
+	ExpiresAt string `json:"expiresAt"`
+}
+
+type UpdateAuthor struct {
+	ID       string  `json:"id"`
+	Name     *string `json:"name,omitempty"`
+	Email    *string `json:"email,omitempty"`
+	Bio      *string `json:"bio,omitempty"`
+	Password *string `json:"password,omitempty"`
+}
+
+type UpdateAuthorRoleInput struct {
+	AuthorID string `json:"authorId"`
+	Role     string `json:"role"`
+}
+
+type UpdateCategory struct {
+	ID   string  `json:"id"`
+	Name *string `json:"name,omitempty"`
+	Slug *string `json:"slug,omitempty"`
 }
 
 type UpdatePost struct {

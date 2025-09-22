@@ -20,6 +20,21 @@ const GET_USERS = gql`
   }
 `;
 
+const GET_POSTS = gql`
+  query GetPosts {
+    posts {
+      id
+      title
+      content
+      author {
+        id
+        name
+        email
+      }
+    }
+  }
+`;
+
 // TypeScript interfaces for type safety
 interface HelloData {
   hello: string;
@@ -31,6 +46,17 @@ interface User {
   email: string;
 }
 
+interface Post {
+  id: string;
+  title: string;
+  content: string;
+  author: User;
+}
+
+interface PostsData {
+  posts: Post[];
+}
+
 interface UsersData {
   users: User[];
 }
@@ -38,6 +64,7 @@ interface UsersData {
 export function GraphQLDemo() {
   const { loading: helloLoading, error: helloError, data: helloData } = useQuery<HelloData>(GET_HELLO);
   const { loading: usersLoading, error: usersError, data: usersData } = useQuery<UsersData>(GET_USERS);
+  const { loading: postsLoading, error: postsError, data: postsData } = useQuery<PostsData>(GET_POSTS);
 
   return (
     <div className="space-y-8">
@@ -65,6 +92,23 @@ export function GraphQLDemo() {
           </div>
         )}
       </div>
+
+      <div className="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg">
+        <h2 className="text-xl font-semibold mb-4">GraphQL Posts Query</h2>
+        {postsLoading && <p className="text-blue-600">Loading posts...</p>}
+        {postsError && <p className="text-red-600">Error: {postsError.message}</p>}
+        {postsData && (
+          <div className="space-y-3">
+            {postsData.posts.map((post: Post) => (
+              <div key={post.id} className="border border-gray-200 dark:border-gray-600 p-3 rounded">
+                <p className="font-medium">{post.title}</p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">{post.content}</p>
+                <p className="text-xs text-gray-600 dark:text-gray-400">Author: {post.author.name}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        </div>
     </div>
   );
 }

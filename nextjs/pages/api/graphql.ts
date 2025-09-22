@@ -8,12 +8,20 @@ const typeDefs = gql`
   type Query {
     hello: String
     users: [User!]!
+    posts: [Post!]!
   }
   
   type User {
     id: ID!
     name: String!
     email: String!
+  }
+
+  type Post {
+    id: ID!
+    title: String!
+    content: String!
+    author: User!
   }
 `;
 
@@ -24,11 +32,23 @@ const users = [
   { id: '3', name: 'Bob Johnson', email: 'bob@example.com' },
 ];
 
+const posts = [
+  { id: '1', title: 'Post 1', content: 'Content of post 1', authorId: '1' },
+  { id: '2', title: 'Post 2', content: 'Content of post 2', authorId: '2' },
+  { id: '3', title: 'Post 3', content: 'Content of post 3', authorId: '3' },
+];
+
 // Define resolvers
 const resolvers = {
   Query: {
     hello: () => 'Hello from GraphQL in Next.js!',
     users: () => users,
+    posts: () => posts,
+  },
+  Post: {
+    author: (post: { authorId: string }) => {
+      return users.find(user => user.id === post.authorId);
+    },
   },
 };
 

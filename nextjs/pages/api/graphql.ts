@@ -9,12 +9,15 @@ const typeDefs = gql`
     hello: String
     users: [User!]!
     posts: [Post!]!
+    post(slug: String!): Post
+    me: User
   }
   
   type User {
     id: ID!
     name: String!
     email: String!
+    token: String
   }
 
   type Post {
@@ -22,7 +25,24 @@ const typeDefs = gql`
     title: String!
     content: String!
     slug: String!
+    category: String!
     author: User!
+  }
+
+  input LoginInput {
+    email: String!
+    password: String!
+  }
+
+  input RegisterInput {
+    name: String!
+    email: String!
+    password: String!
+  }
+
+  type Mutation {
+    login(input: LoginInput!): User
+    register(input: RegisterInput!): User
   }
 `;
 
@@ -34,17 +54,20 @@ const users = [
 ];
 
 const posts = [
-  { id: '1', title: 'Post 1', content: 'Content of post 1', slug: 'post-1', authorId: '1' },
-  { id: '2', title: 'Post 2', content: 'Content of post 2', slug: 'post-2', authorId: '2' },
-  { id: '3', title: 'Post 3', content: 'Content of post 3', slug: 'post-3', authorId: '3' },
+  { id: '1', title: 'Post 1', content: 'Content of post 1', slug: 'post-1', category: 'Technology', authorId: '1' },
+  { id: '2', title: 'Post 2', content: 'Content of post 2', slug: 'post-2', category: 'Design', authorId: '2' },
+  { id: '3', title: 'Post 3', content: 'Content of post 3', slug: 'post-3', category: 'Business', authorId: '3' },
 ];
 
-// Define resolvers
+// Resolvers
 const resolvers = {
   Query: {
     hello: () => 'Hello from GraphQL in Next.js!',
     users: () => users,
     posts: () => posts,
+    post: (_: any, { slug }: { slug: string }) => {
+      return posts.find(post => post.slug === slug);
+    },
   },
   Post: {
     author: (post: { authorId: string }) => {

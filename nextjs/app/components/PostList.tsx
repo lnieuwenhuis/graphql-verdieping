@@ -11,6 +11,7 @@ const GET_POSTS = gql`
       title
       content
       slug
+      category
       author {
         id
         name
@@ -29,6 +30,7 @@ interface Post {
   title: string;
   content: string;
   slug: string;
+  category: string;
   author: Author;
 }
 
@@ -46,11 +48,16 @@ export function PostList() {
     <div className="grid gap-6 md:grid-cols-2">
       {data?.posts.map((post) => (
         <div key={post.id} className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 transition-transform hover:scale-[1.02]">
-          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">
-            <Link href={`/post/${post.slug}`} className="hover:text-blue-600 dark:hover:text-blue-400">
-              {post.title}
-            </Link>
-          </h2>
+          <div className="flex justify-between items-center mb-2">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+              <Link href={`/post/${post.slug}`} className="hover:text-blue-600 dark:hover:text-blue-400">
+                {post.title}
+              </Link>
+            </h2>
+            <span className="px-3 py-1 text-xs font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200 rounded-full">
+              {post.category}
+            </span>
+          </div>
           <p className="text-gray-600 dark:text-gray-300 mb-4 line-clamp-3">
             {post.content}
           </p>

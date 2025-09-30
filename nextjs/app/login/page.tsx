@@ -1,7 +1,7 @@
 'use client';
 
 import LoginForm from '../components/LoginForm';
-import Navigation from '../components/Navigation';
+import { Navigation } from '../components/Navigation';
 
 export default function LoginPage() {
   return (

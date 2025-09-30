@@ -1,7 +1,7 @@
 'use client';
 
 import RegisterForm from '../components/RegisterForm';
-import Navigation from '../components/Navigation';
+import { Navigation } from '../components/Navigation';
 
 export default function RegisterPage() {
   return (

@@ -42,7 +42,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'INSERT INTO authors (created_at, updated_at, name, email, password, bio, role) VALUES (?, ?, ?, ?, ?, ?, ?)'
     );
     let role;
-    if (email === "admin@admin.admin") {
+    if (email === "admin@admin.nl") {
       role = "admin";
     } else {
       role = "user";

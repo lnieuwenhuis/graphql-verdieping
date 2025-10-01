@@ -9,15 +9,17 @@ interface AuthGuardProps {
   redirectTo?: string;
 }
 
-export function AuthGuard({ children, redirectTo = '/login' }: AuthGuardProps) {
+export function AuthGuard({ children }: AuthGuardProps) {
   const { user, loading } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push(redirectTo);
+    if (!user) {
+      router.push('/login');
+    } else if (!user.role || user.role !== 'admin') {
+      router.push('/');
     }
-  }, [user, loading, router, redirectTo]);
+  }, [user, loading, router]);
 
   // Show loading state while checking authentication
   if (loading) {

@@ -10,27 +10,34 @@ export default function LoginForm() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setError('');
 
     try {
-      // This would be replaced with actual authentication logic
-      // For now, we'll simulate a successful login
-      console.log('Login attempt with:', { email, password });
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Store auth token in localStorage (in a real app, use secure storage)
-      localStorage.setItem('authToken', 'dummy-token');
-      
+      // Call the Next.js API route to login against SQLite
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Login failed');
+      }
+
+      // Store auth token and current user
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('currentUser', JSON.stringify(data.author));
+
       // Redirect to home page after successful login
       router.push('/');
     } catch (err) {
-      setError('Failed to login. Please check your credentials.');
+      const message = err instanceof Error ? err.message : 'Failed to login. Please check your credentials.';
+      setError(message);
       console.error('Login error:', err);
     } finally {
       setLoading(false);

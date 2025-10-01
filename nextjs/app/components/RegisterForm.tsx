@@ -26,19 +26,28 @@ export default function RegisterForm() {
     }
 
     try {
-      // This would be replaced with actual registration logic
-      console.log('Registration attempt with:', { name, email, password });
-      
-      // Simulate API call delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Store auth token in localStorage (in a real app, use secure storage)
-      localStorage.setItem('authToken', 'dummy-token');
-      
+      // Call the Next.js API route to register the user in SQLite
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || 'Registration failed');
+      }
+
+      // Store the auth token and current user
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('currentUser', JSON.stringify(data.author));
+
       // Redirect to home page after successful registration
       router.push('/');
     } catch (err) {
-      setError('Failed to register. Please try again.');
+      const message = err instanceof Error ? err.message : 'Failed to register. Please try again.';
+      setError(message);
       console.error('Registration error:', err);
     } finally {
       setLoading(false);

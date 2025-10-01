@@ -8,6 +8,7 @@ interface User {
   name: string;
   email: string;
   token: string;
+  role: string;
 }
 
 // Define AuthContext interface
@@ -55,25 +56,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = async (email: string, password: string): Promise<boolean> => {
     setLoading(true);
     try {
-      // Simulate API call
-      // In a real app, this would be a fetch to your GraphQL API
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Mock successful login for demo purposes
-      if (email && password) {
-        const mockUser = {
-          id: '1',
-          name: 'Demo User',
-          email: email,
-          token: 'mock-jwt-token'
-        };
-        
-        localStorage.setItem('authToken', mockUser.token);
-        localStorage.setItem('currentUser', JSON.stringify(mockUser));
-        setUser(mockUser);
-        return true;
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Login failed');
       }
-      return false;
+
+      const currentUser = { id: String(data.author.id), name: data.author.name, email: data.author.email, token: data.token, role: data.author.role };
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      setUser(currentUser);
+      return true;
     } catch (error) {
       console.error('Login error:', error);
       return false;
@@ -86,24 +84,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const register = async (name: string, email: string, password: string): Promise<boolean> => {
     setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Mock successful registration
-      if (name && email && password) {
-        const mockUser = {
-          id: '2',
-          name: name,
-          email: email,
-          token: 'mock-jwt-token'
-        };
-        
-        localStorage.setItem('authToken', mockUser.token);
-        localStorage.setItem('currentUser', JSON.stringify(mockUser));
-        setUser(mockUser);
-        return true;
+      const res = await fetch('/api/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || 'Registration failed');
       }
-      return false;
+
+      const currentUser = { id: String(data.author.id), name: data.author.name, email: data.author.email, token: data.token, role: data.author.role };
+      localStorage.setItem('authToken', data.token);
+      localStorage.setItem('currentUser', JSON.stringify(currentUser));
+      setUser(currentUser);
+      return true;
     } catch (error) {
       console.error('Registration error:', error);
       return false;

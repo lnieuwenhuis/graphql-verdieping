@@ -8,6 +8,7 @@ interface User {
   id: string;
   name: string;
   email: string;
+  role: 'admin' | 'user';
 }
 
 export function Navigation() {
@@ -68,26 +69,30 @@ export function Navigation() {
             </Link>
             {isAuthenticated ? (
               <>
-                <Link
-                  href="/admin"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive('/admin')
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                      : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
-                  }`}
-                >
-                  Admin
-                </Link>
-                <Link
-                  href="/create-post"
-                  className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                    isActive('/create-post')
-                      ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
-                      : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
-                  }`}
-                >
-                  Create Post
-                </Link>
+                {currentUser?.role === 'admin' && (
+                  <Link
+                    href="/admin"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive('/admin')
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                        : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+                    }`}
+                  >
+                    Admin
+                  </Link>
+                )}
+                {currentUser?.role === 'admin' && (
+                  <Link
+                    href="/create-post"
+                    className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                      isActive('/create-post')
+                        ? 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-200'
+                        : 'text-gray-600 hover:text-gray-900 dark:text-gray-300 dark:hover:text-white'
+                    }`}
+                  >
+                    Create Post
+                  </Link>
+                )}
                 <button
                   onClick={handleLogout}
                   className="px-3 py-2 rounded-md text-sm font-medium text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
